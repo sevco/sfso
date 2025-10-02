@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Sevco Device Lookup",
+  "version": "1.0.0",
+  "description": "Right-click hostnames to lookup device information in Sevco",
+  "permissions": [
+    "contextMenus",
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://api.sev.co/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "img/icon16.png",
+      "48": "img/icon48.png",
+      "128": "img/icon128.png"
+    }
+  },
+  "options_page": "options.html",
+  "icons": {
+    "16": "img/icon16.png",
+    "48": "img/icon48.png",
+    "128": "img/icon128.png"
+  }
+}
