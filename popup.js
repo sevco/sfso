@@ -199,11 +199,14 @@ async function displayDeviceInfo(hostname, device, searchTerm, searchType, allDe
     html += `
       <div class="section">
         <div class="label">Exposure Vulnerabilities</div>
-        <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
           <span class="badge badge-danger">${vulnerabilities.count}</span>
           <div style="color: #999; font-size: 12px;">
             ${vulnerabilities.count === 1 ? 'vulnerability' : 'vulnerabilities'} detected
           </div>
+        </div>
+        <div id="vulnerabilities-container">
+          <div style="color: #999; font-size: 12px;">Loading vulnerability details...</div>
         </div>
       </div>
     `;
@@ -240,6 +243,11 @@ async function displayDeviceInfo(hostname, device, searchTerm, searchType, allDe
   // Fetch and display user details
   if (usernames.length > 0) {
     fetchUserDetails(usernames);
+  }
+
+  // Fetch and display vulnerability details
+  if (vulnerabilities.count > 0 && vulnerabilities.items.length > 0) {
+    fetchVulnerabilityDetails(vulnerabilities.items);
   }
 }
 
@@ -332,6 +340,109 @@ async function lookupUser(username, apiKey, orgId) {
     console.error(`Failed to lookup user ${username}:`, error);
     return null;
   }
+}
+
+async function fetchVulnerabilityDetails(vulnIds) {
+  const vulnsContainer = document.getElementById('vulnerabilities-container');
+  if (!vulnsContainer) return;
+
+  // Show loading state
+  vulnsContainer.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 8px; color: #999; font-size: 12px;">
+      <div class="spinner" style="width: 16px; height: 16px; border-width: 2px;"></div>
+      <span>Loading vulnerability details...</span>
+    </div>
+  `;
+
+  try {
+    const settings = await chrome.storage.sync.get(['apiKey', 'orgId']);
+    if (!settings.apiKey || !settings.orgId) {
+      vulnsContainer.innerHTML = '<div style="color: #ff4444; font-size: 12px;">API credentials not configured</div>';
+      return;
+    }
+
+    const vulnDetails = await Promise.all(
+      vulnIds.map(vuln => lookupVulnerability(vuln.id, settings.apiKey, settings.orgId))
+    );
+
+    let html = '';
+    vulnDetails.forEach(vuln => {
+      if (vuln) {
+        const severityColor = getSeverityColor(vuln.effective_severity);
+        const severityText = getSeverityText(vuln.effective_severity);
+
+        html += `
+          <div style="padding: 8px 0; border-bottom: 1px solid #3a3a3a;">
+            <div style="display: flex; align-items: start; gap: 8px; margin-bottom: 4px;">
+              <span style="color: ${severityColor}; font-size: 16px; line-height: 20px;">●</span>
+              <div style="flex: 1;">
+                <div style="color: #e0e0e0; font-weight: 600; margin-bottom: 2px;">${escapeHtml(vuln.name)}</div>
+                <div style="color: #999; font-size: 11px;">Severity: ${severityText} (${vuln.effective_severity.toFixed(1)})</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    });
+
+    vulnsContainer.innerHTML = html || '<div style="color: #999; font-size: 12px;">No vulnerability details found</div>';
+  } catch (error) {
+    console.error('Error fetching vulnerability details:', error);
+    vulnsContainer.innerHTML = '<div style="color: #ff4444; font-size: 12px;">Error loading vulnerability details</div>';
+  }
+}
+
+async function lookupVulnerability(vulnId, apiKey, orgId) {
+  try {
+    const response = await fetch('https://api.sev.co/v3/asset/exp_vuln', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'authorization': `Token ${apiKey}`,
+        'x-sevco-target-org': orgId
+      },
+      body: JSON.stringify({
+        query: {
+          combinator: 'and',
+          rules: [
+            {
+              entity_type: 'exp_vuln',
+              field: 'id',
+              operator: 'equals',
+              value: vulnId
+            }
+          ]
+        },
+        limit: 1
+      })
+    });
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    if (data.items && data.items.length > 0) {
+      return {
+        id: data.items[0].id,
+        ...data.items[0].attributes
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error(`Failed to lookup vulnerability ${vulnId}:`, error);
+    return null;
+  }
+}
+
+function getSeverityColor(severity) {
+  if (severity >= 7.0) return '#ff4444'; // Critical/High
+  if (severity >= 4.0) return '#ffa500'; // Medium
+  return '#ffd700'; // Low
+}
+
+function getSeverityText(severity) {
+  if (severity >= 7.0) return 'High';
+  if (severity >= 4.0) return 'Medium';
+  return 'Low';
 }
 
 function formatArray(value) {
