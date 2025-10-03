@@ -31,7 +31,8 @@ document.getElementById('fetchOrgsBtn').addEventListener('click', async () => {
   try {
     const response = await fetch('https://api.sev.co/v1/admin/org', {
       headers: {
-        'authorization': `Token ${apiKey}`
+        'authorization': `Token ${apiKey}`,
+        'X-Sevco-Target-Org': '*'
       }
     });
 
