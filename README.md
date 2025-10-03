@@ -26,15 +26,14 @@ When multiple devices match your search, you'll see a summary list:
 ![Device summary](img/device%20summary.png)
 
 ### Source Visibility
-- **Observed sources**: See which security tools and platforms have detected this device, with last activity timestamps
+- **Observed sources**: See which configured sources have observed this device, with last activity timestamps.  Immediately confirm if your EDR is running or the machine has been scanned by VA.
 - **Unobserved sources**: Identify configured sources where the device has NOT been observed
-- **Source logos**: Visual indicators for each integration source
 
 ![Sources](img/sources.png)
 
 ### Security Context
-- **Exposure vulnerabilities**: View count of detected vulnerabilities
-- **Associated users**: See detailed user information including full names and email addresses for users observed on the device
+- **Exposure vulnerabilities**: View count of "exposure vulnerabilities" as configured in the Sevco console
+- **Associated users**: See details of users observed on the device
 
 ![Vulnerabilities and Users](img/vulns%20users.png)
 
@@ -78,9 +77,6 @@ When multiple devices match your search, you'll see a summary list:
 - Click on any device to see detailed information
 - Use the "Back to Results" button to return to the list
 
-### Test Page
-Open `test.html` in your browser to test the extension with sample hostnames and IP addresses.
-
 ## Supported Search Types
 
 ### Hostnames
@@ -107,7 +103,6 @@ This extension integrates with the following Sevco API endpoints:
 - `background.js` - Service worker for API calls and context menu
 - `popup.html` / `popup.js` - Main popup interface
 - `options.html` / `options.js` - Settings/configuration page
-- `test.html` - Test page with sample data
 
 ## Troubleshooting
 
@@ -136,6 +131,7 @@ This extension integrates with the following Sevco API endpoints:
 
 For issues, questions, or feature requests:
 - Check the Sevco documentation at [docs.sev.co](https://docs.sev.co)
+- Open an issue in this repo or just submit a pull request!
 - Contact Sevco support
 
 ## License
