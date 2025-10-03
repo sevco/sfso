@@ -212,6 +212,16 @@ async function displayDeviceInfo(hostname, device, searchTerm, searchType, allDe
     `;
   }
 
+  // CVEs Section
+  html += `
+    <div class="section">
+      <div class="label">CVEs</div>
+      <div id="cves-container">
+        <div style="color: #999; font-size: 12px;">Loading CVE details...</div>
+      </div>
+    </div>
+  `;
+
   // Users - fetch details for each username
   if (usernames.length > 0) {
     html += `
@@ -249,6 +259,9 @@ async function displayDeviceInfo(hostname, device, searchTerm, searchType, allDe
   if (vulnerabilities.count > 0 && vulnerabilities.items.length > 0) {
     fetchVulnerabilityDetails(vulnerabilities.items);
   }
+
+  // Fetch and display CVE details
+  fetchCVEDetails(deviceId);
 }
 
 async function fetchUserDetails(usernames) {
@@ -530,6 +543,117 @@ function extractVulnerabilities(device) {
   }
 
   return { count: 0, items: [] };
+}
+
+async function fetchCVEDetails(deviceId) {
+  const cvesContainer = document.getElementById('cves-container');
+  if (!cvesContainer) return;
+
+  // Show loading state
+  cvesContainer.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 8px; color: #999; font-size: 12px;">
+      <div class="spinner" style="width: 16px; height: 16px; border-width: 2px;"></div>
+      <span>Loading CVE details...</span>
+    </div>
+  `;
+
+  try {
+    const settings = await chrome.storage.sync.get(['apiKey', 'orgId']);
+    if (!settings.apiKey || !settings.orgId) {
+      cvesContainer.innerHTML = '<div style="color: #ff4444; font-size: 12px;">API credentials not configured</div>';
+      return;
+    }
+
+    const response = await fetch('https://api.sev.co/v3/asset/vuln?lang=en', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'authorization': `Token ${settings.apiKey}`,
+        'x-sevco-target-org': settings.orgId
+      },
+      body: JSON.stringify({
+        query: {
+          combinator: 'and',
+          rules: [{
+            field: 'id',
+            value: deviceId,
+            operator: 'equals',
+            entity_type: 'device'
+          }]
+        },
+        pagination: { page: 0, per_page: 50 },
+        sort: [{ field: 'severity', direction: 'desc' }]
+      })
+    });
+
+    if (!response.ok) {
+      cvesContainer.innerHTML = '<div style="color: #ff4444; font-size: 12px;">Error loading CVE data</div>';
+      return;
+    }
+
+    const data = await response.json();
+    const cves = data.items || [];
+    const total = data.total || cves.length;
+
+    if (cves.length === 0) {
+      cvesContainer.innerHTML = '<div style="color: #999; font-size: 12px;">No CVEs found for this device</div>';
+      return;
+    }
+
+    // Sort by CVSS score (using cvss3_base_score from attributes)
+    const sortedCves = cves
+      .map(item => ({
+        id: item.id,
+        ...item.attributes
+      }))
+      .sort((a, b) => (b.cvss3_base_score || b.composite_cvss_score || 0) - (a.cvss3_base_score || a.composite_cvss_score || 0))
+      .slice(0, 10); // Show top 10
+
+    let html = `
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+        <span class="badge badge-danger">${total}</span>
+        <div style="color: #999; font-size: 12px;">
+          ${total === 1 ? 'CVE' : 'CVEs'} total (showing top ${Math.min(10, sortedCves.length)})
+        </div>
+      </div>
+    `;
+
+    sortedCves.forEach(cve => {
+      const cveId = cve.cve || 'Unknown';
+      const cvssScore = cve.cvss3_base_score || cve.composite_cvss_score || 0;
+      const description = cve.name || cve.description || 'No description available';
+      const severityColor = getCVSSSeverityColor(cvssScore);
+      const isKev = cve.cisa_kev_exploit_add ? true : false;
+
+      html += `
+        <div style="padding: 12px 0; border-bottom: 1px solid #3a3a3a;">
+          <div style="display: flex; align-items: start; gap: 8px; margin-bottom: 6px;">
+            <span style="color: ${severityColor}; font-size: 16px; line-height: 20px;">●</span>
+            <div style="flex: 1;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                <span style="color: #e0e0e0; font-weight: 600; font-family: 'Courier New', monospace;">${escapeHtml(cveId)}</span>
+                <span style="color: ${severityColor}; font-weight: 600; font-size: 12px;">CVSS ${cvssScore.toFixed(1)}</span>
+                ${isKev ? '<span class="badge badge-danger" style="font-size: 10px; padding: 2px 6px;">CISA KEV</span>' : ''}
+              </div>
+              <div style="color: #999; font-size: 11px; line-height: 1.4;">${escapeHtml(description)}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    cvesContainer.innerHTML = html;
+  } catch (error) {
+    console.error('Error fetching CVE details:', error);
+    cvesContainer.innerHTML = '<div style="color: #ff4444; font-size: 12px;">Error loading CVE details</div>';
+  }
+}
+
+function getCVSSSeverityColor(score) {
+  if (score >= 9.0) return '#ff0000'; // Critical
+  if (score >= 7.0) return '#ff4444'; // High
+  if (score >= 4.0) return '#ffa500'; // Medium
+  return '#ffd700'; // Low
 }
 
 function escapeHtml(text) {
