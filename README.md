@@ -32,10 +32,14 @@ When multiple devices match your search, you'll see a summary list:
 ![Sources](img/sources.png)
 
 ### Security Context
-- **Exposure vulnerabilities**: View count of "exposure vulnerabilities" as configured in the Sevco console
+- **Exposure vulnerabilities**: View the "exposure vulnerabilities" as configured in the Sevco console
+- **CVEs**: View count of CVEs reported on the system by all VA tools that cover the machine, as well as detail for the top ten sorted by CVSS score. 
+
+![Vulnerabilities](img/vulns.png)
+
 - **Associated users**: See details of users observed on the device
 
-![Vulnerabilities and Users](img/vulns%20users.png)
+![Users](img/vulns%20users.png)
 
 ### Direct Console Access
 - **Quick link**: One-click access to view the full device details in the Sevco console
